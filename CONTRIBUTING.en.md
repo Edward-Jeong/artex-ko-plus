@@ -117,8 +117,8 @@ connected to PostgreSQL. Six packages — `agent`, `config`, `db`, `evidence`, `
 `server` — contain tests that require a real database; if there is no `ARTEX_PG_DSN`
 environment variable and no `database` entry in the config file, those tests are skipped with
 `--- SKIP` and the package still ends in `ok`. As a result, if you fix one of these six
-packages and verify without a DSN, **it can pass locally (ok) while the PR's `go-db` job
-fails.**
+packages and verify without a DSN, **it can pass locally (ok) while database-backed tests
+fail.**
 
 To run these tests locally, bring up PostgreSQL and pass `ARTEX_PG_DSN`. The example below
 launches the same `postgres:16-alpine` as CI on an isolated network, reusing the named volumes
@@ -180,10 +180,8 @@ docker compose up -d     # start artex + postgres → http://localhost:8787
 3. Write the change and **run the relevant verification yourself.** For a Go change, make the
    `build`/`vet`/`test` above pass. For a web change, make `npm run build:static` pass (it also
    performs the merge gate and the TypeScript type checking). `npm run check` (Biome) still has
-   pre-existing lint debt inherited from upstream and is not a merge gate yet — `web.yml` runs it
-   only as an informational step — so you do not need to make all of it pass. Instead, just
-   confirm that **your change does not add new errors** (when you commit, `lint-staged`
-   automatically applies `biome check --write` to the files you staged). If you changed
+   pre-existing lint debt inherited from upstream and is not a current CI gate. Confirm that
+   **your change does not add new errors**. If you changed
    documentation (`.md`), run `python3 -I scripts/check-doc-links.py` to confirm that in-repo
    link/image references and document anchor (`#heading`) links are not broken. Anchors are built
    from headings into slugs with the same rule as GitHub and matched, so if you change a heading's

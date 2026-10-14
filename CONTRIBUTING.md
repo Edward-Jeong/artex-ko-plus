@@ -108,8 +108,8 @@ docker run --rm -v "$PWD":/src -w /src \
 건너뜁니다.** `agent`·`config`·`db`·`evidence`·`llmrec`·`server` 여섯 패키지에는 실제
 데이터베이스가 있어야 도는 테스트가 들어 있는데, 환경 변수 `ARTEX_PG_DSN` 도 없고 설정
 파일에도 `database` 항목이 없으면 그 테스트들은 `--- SKIP` 으로 넘어가고 패키지는 `ok` 로
-끝납니다. 그래서 이 여섯 패키지를 고친 뒤 DSN 없이 검증하면 **로컬은 통과(ok)하는데 PR 의
-`go-db` 작업은 실패**할 수 있습니다.
+끝납니다. 그래서 이 여섯 패키지를 고친 뒤 DSN 없이 검증하면 **로컬은 통과(ok)해도
+데이터베이스 연동 테스트는 실패**할 수 있습니다.
 
 이 테스트들을 로컬에서 돌리려면 PostgreSQL 을 띄우고 `ARTEX_PG_DSN` 을 건넵니다. 아래는
 CI 와 같은 `postgres:16-alpine` 을 격리 네트워크에 띄워 돌리는 예시이며, 위와 같은 named
@@ -172,9 +172,7 @@ docker compose up -d     # artex + postgres 기동 → http://localhost:8787
    `build`·`vet`·`test` 를 통과시킵니다. web 변경이면 `npm run build:static`
    (머지 게이트 · TypeScript 타입 검사를 함께 수행합니다)을 통과시킵니다.
    `npm run check`(Biome)는 상류에서 딸려온 선재 린트 부채가 남아 있어 아직 머지
-   게이트가 아니고 `web.yml` 에서 정보용 단계로만 돌리므로, 전체를 통과시킬 필요는
-   없습니다. 대신 **내 변경이 새 오류를 더하지 않았는지**만 확인하면 됩니다(커밋할 때
-   `lint-staged` 가 스테이징한 파일에만 `biome check --write` 를 자동으로 적용합니다).
+   현행 CI 게이트가 아닙니다. **내 변경이 새 오류를 더하지 않았는지** 직접 확인하십시오.
    문서(`.md`)를 바꿨다면 `python3 -I scripts/check-doc-links.py` 로 저장소 안
    링크·이미지 참조와 문서 앵커(`#헤딩`) 링크가 깨지지 않았는지 확인합니다. 앵커는
    GitHub 과 같은 규칙으로 헤딩에서 slug 를 만들어 대조하므로, 헤딩 글자를 바꾸면서
