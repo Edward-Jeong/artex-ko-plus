@@ -27,7 +27,8 @@ class PublicBoundaryTests(unittest.TestCase):
             subprocess.run(['git', 'init', '-q', str(root)], check=True)
             (root / '.gitignore').write_bytes((ROOT / '.gitignore').read_bytes())
             protected = ['.env.local', '.local-runtime/jwt.key', 'data/run.json',
-                         'nested/.env.production', 'capture.har', 'release-artifacts/source.zip']
+                         'nested/.env.production', 'capture.har', 'release-artifacts/source.zip',
+                         '.npmrc', 'nested/.netrc', '.pypirc', 'nested/id_ed25519', 'id_rsa']
             result = subprocess.run(['git', '-C', str(root), 'check-ignore', '-z', '--stdin'],
                                     input=('\0'.join(protected) + '\0').encode(),
                                     capture_output=True, check=True)

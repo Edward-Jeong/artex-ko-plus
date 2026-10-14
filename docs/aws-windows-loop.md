@@ -144,3 +144,5 @@ Security 4688과 PowerShell 4104는 수집된 추가 로그로 확인할 수 있
 | `GET /api/closed-loop/range/cycles/{uuid}/export` | 원본 근거와 이력 내보내기 |
 
 설정이 없으면 상태 조회는 `configured:false`, `ready:false`를 반환하고 실행 요청은 거절합니다. ID는 UUID만 허용하며 추가 조회 조건·자유 경로를 전달하지 않습니다. 요청·일반 응답은 1 MiB 이내이고, 원본 근거 JSON 내보내기 응답은 64 MiB까지 허용합니다. 리다이렉트·인증 정보·브라우저 쿠키를 다른 서비스로 전달하지 않습니다. 비동기 작업은 접수 결과와 이후 상태 조회로 확인합니다.
+
+브리지 bearer 토큰을 평문 네트워크에 노출하지 않도록 `ARTEX_RANGE_BRIDGE_URL`의 HTTP 주소는 같은 호스트의 루프백 또는 기본 Docker 서비스 이름 `range-bridge`만 허용합니다. 다른 호스트의 브리지를 연결할 때는 인증서가 검증되는 HTTPS 주소를 사용합니다.

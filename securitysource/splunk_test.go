@@ -15,7 +15,17 @@ import (
 
 func sourceFixture(t *testing.T, h http.HandlerFunc) (Config, Credentials) {
 	t.Helper()
-	s := httptest.NewTLSServer(h)
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Complete the POST request before writing a potentially large export.
+		// Real Splunk consumes its search form; leaving it unread in the mock can
+		// interrupt the HTTP response body before the bounded reader sees it.
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("parse Splunk test request: %v", err)
+			http.Error(w, "invalid test request", http.StatusBadRequest)
+			return
+		}
+		h(w, r)
+	}))
 	t.Cleanup(s.Close)
 	fp := sha256.Sum256(s.Certificate().Raw)
 	return Config{BaseURL: s.URL, Index: "security", AuditSourcetype: "app:audit", AlertSourcetype: "waf:alert", CorrelationField: "artex_verification_id", ActionField: "action", TLSFingerprint: hex.EncodeToString(fp[:])}, Credentials{Username: "reader", Password: "test-only"}

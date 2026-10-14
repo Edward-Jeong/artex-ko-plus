@@ -70,6 +70,12 @@ func loadClosedLoopRangeConfig() (*closedLoopRangeConfig, bool) {
 	if err != nil || base.Hostname() == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" || (base.Scheme != "http" && base.Scheme != "https") || (base.Path != "" && base.Path != "/") || base.RawPath != "" {
 		return nil, true
 	}
+	// The bearer token must not cross an unencrypted remote network. The
+	// shipped HTTP bridge lives only on the private Docker service network;
+	// external bridge hosts must use TLS.
+	if base.Scheme == "http" && !localRangeBridgeHost(base.Hostname()) {
+		return nil, true
+	}
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, true
@@ -85,6 +91,14 @@ func loadClosedLoopRangeConfig() (*closedLoopRangeConfig, bool) {
 	}
 	base.Path = ""
 	return &closedLoopRangeConfig{base: base, token: token}, true
+}
+
+func localRangeBridgeHost(host string) bool {
+	if strings.EqualFold(host, "localhost") || strings.EqualFold(host, "range-bridge") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func rangeCredentialKey(key string) bool {

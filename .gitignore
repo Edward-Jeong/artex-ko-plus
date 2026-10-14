@@ -16,6 +16,16 @@ config.json
 scheduler_state.json
 **/jwt.key
 **/credentials
+.npmrc
+.netrc
+.pypirc
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+privatekey
+private_key
+private-key
 .aws/
 *.pem
 *.key
