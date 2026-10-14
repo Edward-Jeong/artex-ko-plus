@@ -11,6 +11,10 @@
 보이는 산출물만 한국어로 바꾸는 것**입니다. 상류가 갱신될 때마다 이 경계가 흐트러지기 쉬우므로,
 아래 절차와 검사로 번역 드리프트를 막습니다.
 
+아래 CI·릴리스 절차 일부는 이전 워크플로 설계를 보존한 기록입니다. 현행 워크플로는
+[`security-ci.yml`](.github/workflows/security-ci.yml)입니다. 예전 탐지·외부 링크·릴리스 워크플로와
+루트 pre-commit 설정은 현재 없으므로, 이에 의존하는 절차는 자동화가 복구되기 전까지 과거 기록으로 읽으십시오.
+
 ---
 
 ## 1. 현지화 구조 한눈에 보기
@@ -189,17 +193,10 @@ detections/tests/indicators/run.sh   # Docker 로 격리 실행, RESULT: PASS �
 ```
 
 실패하면 어느 지표가 어긋났는지와 그 방향(상류 소스가 바뀌었는지, 규칙이 바뀌었는지)을
-출력하므로, 4.2 의 마지막 분류 기준대로 규칙·레이어를 새 값에 맞춥니다. 이 테스트는 저장소
-CI([`.github/workflows/detections.yml`](.github/workflows/detections.yml))에서도 규칙 트리나
-위 상류 소스 파일이 바뀐 푸시·PR 마다 자동으로 돌아, 재동기화 드리프트를 머지 게이트에서 잡습니다.
-
-새 지표를 추가하면서 **새 상류 소스 파일을 고정했다면**(예: `cmd/artex/main.go` 의 포트 지표를
-넣을 때처럼), 그 파일을 반드시 위 워크플로의 `push`·`pull_request` `paths` 필터에도 추가합니다.
-빠뜨리면 그 소스만 바꾼 PR 은 지표 테스트를 발화시키지 못해, 드리프트가 머지 게이트를 조용히
-통과합니다. 이 동기화 자체도 지표 테스트가 자동으로 확인합니다(다섯 번째 검사 "CI triggers this
-test when any pinned source changes"): 테스트가 읽는 모든 비 `detections/` 소스가 양쪽 `paths`
-블록에 열거돼 있지 않으면 테스트가 실패하므로, 소스 고정과 CI 발화 조건이 어긋난 채로 머지되지
-않습니다.
+출력하므로, 4.2 의 마지막 분류 기준대로 규칙·레이어를 새 값에 맞춥니다. 현재 배포본에는 예전 `detections.yml` 워크플로가 없습니다. 현행
+[`security-ci.yml`](.github/workflows/security-ci.yml)은 이 스위트를 실행하지 않으며, 지표 하네스도
+삭제된 워크플로와 pre-commit 설정에 의존합니다. 현행 CI 통과를 탐지 규칙 검증으로 취급하지 말고,
+실행 가능한 별도 수동 검증의 근거를 기록하십시오.
 
 ### 5.5 탐지 테스트 도구 핀을 올릴 때
 
@@ -254,18 +251,11 @@ chore(upstream): 상류 d003372..b55ceb1 반영 (intercept 토큰 계량) + 신�
 
 ### 8.1 저장소 CI 상태는 저장소를 지정해서 확인합니다
 
-이 저장소는 상류 ARTEX 의 포크라서, 로컬 `git remote` 에 `origin`(jiwoochris/artex-ko)과
-`upstream`(Autumn-27/ARTEX)이 함께 등록되어 있습니다(3절 참조). 이 상태에서 `gh` 명령에
-저장소를 지정하지 않으면, `gh` 가 **상류 저장소를 기본값으로 골라** 우리 워크플로가 없는
-상류의 실행 결과를 보여 줍니다. 그러면 상류 CI 가 초록인 것을 보고 **우리 CI 가 통과했다고
-착각**하거나, 우리 워크플로(`ci.yml`·`detections.yml`)를 "HTTP 404 … not found" 로 잘못
-판단할 수 있습니다.
-
-그래서 CI 를 확인할 때는 항상 저장소를 명시합니다.
+CI를 확인할 때는 상류와 이 포크의 실행 결과를 혼동하지 않도록 저장소를 명시하십시오.
+예전 `ci.yml`·`detections.yml` 워크플로는 이 체크아웃에 없습니다. 현행 워크플로 확인 명령은 다음과 같습니다.
 
 ```bash
-gh run list -R jiwoochris/artex-ko --workflow ci.yml --limit 5
-gh run list -R jiwoochris/artex-ko --workflow detections.yml --limit 5
+gh run list -R jiwoochris/artex-ko --workflow security-ci.yml --limit 5
 ```
 
 한 번 설정해 두면 `-R` 를 생략해도 우리 저장소를 기본으로 보도록 바꿀 수 있습니다. 다만 이
@@ -316,22 +306,17 @@ DOWN(404·410·5xx·연결 오류, 깨졌을 가능성 높음).
 - 네트워크 없이 점검 대상만 미리 보기: `python3 -I scripts/check-external-links.py --list`
 - 릴리스·주기 점검(새로 깨진 링크가 있으면 비정상 종료): `python3 -I scripts/check-external-links.py --strict`
 
-외부 링크 생존은 flaky 하므로 **머지 게이트에 넣지 않습니다**. 대신 비차단 워크플로
-[`external-links`](.github/workflows/external-links.yml) 가 매주 월요일과 수동 실행으로
-`--strict` 를 돌려, allowlist 에 없는 DOWN 이 새로 생기면 빨갛게 드러냅니다. 상류 원문 보존
-파일이 물려받은 죽은 링크(예: `CHANGELOG.zh.md` 가 크레딧한, 사라진 기여자 계정)는 우리가
-고칠 수 없으므로 allowlist 에 사유와 함께 적어 strict 점검에서 뺍니다.
+외부 링크 생존은 flaky 하므로 위 `--strict` 검사는 수동으로 실행하며 머지 게이트가 아닙니다.
+예전 `external-links.yml` 예약 워크플로는 현재 없습니다. 상류 원문 보존 파일이 물려받은
+죽은 링크는 사유와 함께 allowlist에 남겨 둡니다.
 
 ---
 
 ## 9. 릴리스 발행 파이프라인
 
-버전 태그(`v*`)를 밀면 [`.github/workflows/release.yml`](.github/workflows/release.yml) 이 다섯
-플랫폼용 바이너리와, 조건을 만족할 때 멀티아키텍처 Docker 이미지를 만듭니다. 이 포크는 아직
-릴리스 태그를 끊은 적이 없어 이 워크플로가 한 번도 실행되지 않았으므로, 이 절은 파이프라인이
-무엇을 전제하고 무엇을 산출하는지, 그리고 그 전제가 지금 저장소 구조와 맞는지를 정리합니다.
-태그를 밀면 공개 저장소에 GitHub Release 가 생기므로, 릴리스를 끊는 일은 발행 결정이 선 뒤에
-합니다.
+예전 `.github/workflows/release.yml`은 현재 없습니다. 아래 소절은 당시의 빌드 전제와 태그
+절차를 기록하며, 현재 체크아웃에서 태그를 밀어도 그 파이프라인은 실행되지 않습니다.
+소스 배포 준비와 검토는 현행 [릴리스 안내](docs/release.md)를 따르십시오.
 
 ### 9.1 릴리스를 끊는 법
 

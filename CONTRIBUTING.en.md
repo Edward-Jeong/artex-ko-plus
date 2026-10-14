@@ -4,6 +4,9 @@
 
 Thank you for your interest in the Korean edition of ARTEX (`artex-ko`). This document
 gathers the scope, policies, and procedures you should know before you start contributing.
+The current automated checks are in [`security-ci.yml`](.github/workflows/security-ci.yml). Run
+`python3 -I scripts/check-doc-links.py` and the relevant detection suite scripts locally when
+changing those areas; the former `docs.yml`, `detections.yml`, and pre-commit hooks are not shipped.
 Before you send a contribution, please read [Authorized use and legal responsibility](#authorized-use-and-legal-responsibility)
 and [Localization policy](#localization-policy) first.
 
@@ -114,8 +117,8 @@ connected to PostgreSQL. Six packages — `agent`, `config`, `db`, `evidence`, `
 `server` — contain tests that require a real database; if there is no `ARTEX_PG_DSN`
 environment variable and no `database` entry in the config file, those tests are skipped with
 `--- SKIP` and the package still ends in `ok`. As a result, if you fix one of these six
-packages and verify without a DSN, **it can pass locally (ok) while the PR's `go-db` job
-fails.**
+packages and verify without a DSN, **it can pass locally (ok) while database-backed tests
+fail.**
 
 To run these tests locally, bring up PostgreSQL and pass `ARTEX_PG_DSN`. The example below
 launches the same `postgres:16-alpine` as CI on an isolated network, reusing the named volumes
@@ -140,9 +143,9 @@ docker run --rm --network artexko-db -v "$PWD":/src -w /src \
 docker rm -f artexko-pg && docker network rm artexko-db
 ```
 
-CI's `go-db` job **isolates each of these six packages with its own postgres** and forces them
-to run before merge (`.github/workflows/ci.yml`). If you changed a DB integration package, we
-recommend verifying that package directly with the method above before you open the PR.
+The current CI runs [`scripts/local-test.sh`](scripts/local-test.sh) with a disposable PostgreSQL
+container for its selected Go integration tests. If you changed a DB integration package, verify
+the relevant tests directly with the method above before opening a PR.
 
 ### Frontend (web)
 
@@ -177,20 +180,14 @@ docker compose up -d     # start artex + postgres → http://localhost:8787
 3. Write the change and **run the relevant verification yourself.** For a Go change, make the
    `build`/`vet`/`test` above pass. For a web change, make `npm run build:static` pass (it also
    performs the merge gate and the TypeScript type checking). `npm run check` (Biome) still has
-   pre-existing lint debt inherited from upstream and is not a merge gate yet — `web.yml` runs it
-   only as an informational step — so you do not need to make all of it pass. Instead, just
-   confirm that **your change does not add new errors** (when you commit, `lint-staged`
-   automatically applies `biome check --write` to the files you staged). If you changed
+   pre-existing lint debt inherited from upstream and is not a current CI gate. Confirm that
+   **your change does not add new errors**. If you changed
    documentation (`.md`), run `python3 -I scripts/check-doc-links.py` to confirm that in-repo
    link/image references and document anchor (`#heading`) links are not broken. Anchors are built
    from headings into slugs with the same rule as GitHub and matched, so if you change a heading's
-   text without also fixing the anchor links that pointed to it, it is caught here (CI's `docs`
-   workflow enforces the same check as a merge gate). This check is also wired as the `docs` hook in
-   the repository root's [`.pre-commit-config.yaml`](.pre-commit-config.yaml), so if you run
-   `pre-commit install` it runs automatically on every commit (it uses only the Python standard
-   library and no network, so it finishes without Docker).
-4. **Open a PR.** Follow the [PR template](.github/PULL_REQUEST_TEMPLATE.md) for the title and
-   description, and write what you changed, why, and how you verified it. If you changed the UI,
+   text without also fixing the anchor links that pointed to it, it is caught here. Run this
+   standard-library, offline check yourself; the current CI does not run it.
+4. **Open a PR.** In the title and description, write what you changed, why, and how you verified it. If you changed the UI,
    attach screenshots.
 5. For a user-facing change (feature, localization, documentation, detection rule, and so on),
    add one line to the `[Unreleased]` section of the [changelog (CHANGELOG.en.md)](CHANGELOG.en.md).
@@ -280,23 +277,11 @@ detections/tests/indicators/run.sh      # Indicators: rule's pinned indicators �
 detections/tests/misp/run.sh            # MISP: indicator CSV ↔ MISP event sync + pymisp validity
 ```
 
-To run all eight at once, use [`detections/tests/run-all.sh`](detections/tests/run-all.sh). It runs the
-eight sequentially in the same order as CI, runs the rest to the end even if an earlier suite fails, then
-prints a per-suite PASS/FAIL summary, and exits with a non-zero code if any one fails. An example of
-wiring this runner directly as a pre-commit hook is in the repository root's
-[`.pre-commit-config.yaml`](.pre-commit-config.yaml). If you install it with `pip install pre-commit &&
-pre-commit install`, the runner runs only on commits that change detection rules or the upstream source
-those rules pin (the same scope as CI), catching rule/test mismatches before push. The same config file
-also includes the `docs` hook that checks in-repo link/image/anchor references (the `check-doc-links.py`
-from step 3 of the contribution flow above).
-
-These eight tests are run by the repository CI
-([`.github/workflows/detections.yml`](.github/workflows/detections.yml)) on every push/PR that changes
-anything under `detections/`. The indicator-match test also runs when the upstream source files those
-indicators point to (`enrich/`, `selfupdate/`, `guard/`, `db/`, `cmd/artex/main.go`) change, catching the
-case where an upstream resync changes a User-Agent, marker, or default port and silently makes a rule
-stale. So a change that updates only a rule without updating the tests/layer, a rule that breaks a SigmaHQ
-convention, or a rule that is inconsistent with the source shows up red in CI before merge.
+The former eight-suite CI and pre-commit setup is not shipped here. The historical
+[`detections/tests/run-all.sh`](detections/tests/run-all.sh) still invokes a harness check that
+requires the absent `detections.yml`, so it cannot serve as a current verification gate.
+Run only the relevant suite scripts after checking their local prerequisites; the indicators
+suite also depends on the removed workflow and hook configuration. Report which tests actually ran.
 
 The rule index and each rule's basis and limitations are in [`detections/README.md`](detections/README.md),
 and the tests' assertions and how to run them are in [`detections/tests/README.md`](detections/tests/README.md).

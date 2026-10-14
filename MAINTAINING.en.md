@@ -8,6 +8,11 @@ Korean localization. Contribution scope, legal responsibility, and the localizat
 [CONTRIBUTING.en.md](CONTRIBUTING.en.md); user-facing guidance lives in [README.en.md](README.en.md).
 This document therefore focuses solely on **how that policy is actually enforced**.
 
+Some CI and release sections below preserve an earlier workflow design. The active workflow is
+[`security-ci.yml`](.github/workflows/security-ci.yml); the old detection, external-link, and release
+workflows and root pre-commit configuration are absent. Treat instructions tied to those files as
+historical until the automation is explicitly restored.
+
 The core goal of the localization can be summed up in one sentence: **preserve the original's
 judgment performance exactly, while translating only the user-facing output into Korean**. That
 boundary is easy to blur every time upstream updates, so the procedures and checks below prevent
@@ -206,17 +211,10 @@ detections/tests/indicators/run.sh   # runs in isolation under Docker; RESULT: P
 
 On failure it prints which indicator is out of sync and in which direction (whether the upstream
 source changed or the rule changed), so bring the rules and the layer in line with the new values per
-the last classification criterion of 4.2. This test also runs automatically in the repository CI
-([`.github/workflows/detections.yml`](.github/workflows/detections.yml)) on every push/PR that changes
-the rule tree or the upstream source files above, catching re-sync drift at the merge gate.
-
-If you add a new indicator and in doing so **pin a new upstream source file** (as when adding the port
-indicator from `cmd/artex/main.go`, for example), you must also add that file to the `push` and
-`pull_request` `paths` filters of the workflow above. If you miss it, a PR that changes only that
-source will not trigger the indicator test, and the drift will silently pass the merge gate. The
-indicator test checks this synchronization itself (its fifth check, "CI triggers this test when any
-pinned source changes"): if any non-`detections/` source the test reads is not listed in both `paths`
-blocks, the test fails, so source pinning and CI trigger conditions cannot be merged out of sync.
+the last classification criterion of 4.2. The former `detections.yml` workflow is absent. The current
+[`security-ci.yml`](.github/workflows/security-ci.yml) does not run this suite, and the indicators
+harness also expects the missing workflow and pre-commit configuration. Do not treat a green current
+CI run as detection-rule verification; record separate manual evidence when those checks can run.
 
 ### 5.5 When bumping the detection-test tool pins
 
@@ -278,18 +276,11 @@ reverts.
 
 ### 8.1 Check the repository's CI status by specifying the repository
 
-This repository is a fork of upstream ARTEX, so the local `git remote` has both `origin`
-(jiwoochris/artex-ko) and `upstream` (Autumn-27/ARTEX) registered (see section 3). In this state, if
-you do not specify a repository in a `gh` command, `gh` **picks the upstream repository as the
-default** and shows you run results from upstream, which does not have our workflows. You can then see
-upstream CI green and **mistakenly think our CI passed**, or judge our workflows (`ci.yml`,
-`detections.yml`) as "HTTP 404 ... not found" by mistake.
-
-So when checking CI, always name the repository explicitly.
+Specify the repository when checking CI to avoid confusing upstream runs with this fork. The
+former `ci.yml` and `detections.yml` workflows are absent in this checkout. Check the active workflow:
 
 ```bash
-gh run list -R jiwoochris/artex-ko --workflow ci.yml --limit 5
-gh run list -R jiwoochris/artex-ko --workflow detections.yml --limit 5
+gh run list -R jiwoochris/artex-ko --workflow security-ci.yml --limit 5
 ```
 
 Once set, you can make `gh` default to our repository even when you omit `-R`. Note, however, that
@@ -341,22 +332,17 @@ blocked) · ALLOWED (a known upstream-inherited dead link we cannot fix, listed 
 - Preview the targets without the network: `python3 -I scripts/check-external-links.py --list`
 - Release/periodic check (exits non-zero on a newly broken link): `python3 -I scripts/check-external-links.py --strict`
 
-External-link liveness is flaky, so it is **not a merge gate**. Instead the non-blocking
-[`external-links`](.github/workflows/external-links.yml) workflow runs `--strict` every Monday and on
-manual dispatch, turning red when a DOWN not on the allowlist newly appears. Dead links inherited by
-upstream-preserved files (for example a vanished contributor account credited in `CHANGELOG.zh.md`) are
-ones we cannot fix, so they go on the allowlist with a reason and are excluded from the strict check.
+External-link liveness is flaky, so the manual `--strict` check above is not a merge gate. The
+former `external-links.yml` scheduled workflow is absent. Dead links inherited from upstream-preserved
+files remain listed with reasons in the allowlist.
 
 ---
 
 ## 9. The release pipeline
 
-Pushing a version tag (`v*`) makes [`.github/workflows/release.yml`](.github/workflows/release.yml)
-build binaries for five platforms and, when a condition is met, a multi-architecture Docker image.
-This fork has never cut a release tag, so this workflow has never run. This section therefore records
-what the pipeline assumes and produces, and whether those assumptions match the current repository
-structure. Because pushing a tag creates a GitHub Release on the public repository, cut a release only
-after the publishing decision is made.
+The former `.github/workflows/release.yml` is absent. The following subsections preserve its
+historical build assumptions and tag procedure; pushing a tag in this checkout does not invoke that
+pipeline. Use the current [release guide](docs/release.md) for source packaging and review.
 
 ### 9.1 How to cut a release
 

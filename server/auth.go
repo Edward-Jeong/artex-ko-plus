@@ -149,7 +149,13 @@ func (s *Server) authInit(w http.ResponseWriter, r *http.Request) {
 	if pg == nil {
 		return
 	}
-	existing, _, _ := pg.GetSetting(authPassKey)
+	// Reject ordinary repeated bootstrap requests before doing expensive bcrypt
+	// work. InitSetting below is still the authority for concurrent requests.
+	existing, _, err := pg.GetSetting(authPassKey)
+	if err != nil {
+		writeErr(w, 500, authErrSaveFailedPrefix+err.Error())
+		return
+	}
 	if existing != "" {
 		writeErr(w, 403, authErrPasswordAlreadySet)
 		return
@@ -166,8 +172,13 @@ func (s *Server) authInit(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 500, authErrPasswordHash)
 		return
 	}
-	if err := pg.SetSetting(authPassKey, string(hash)); err != nil {
+	initialized, err := pg.InitSetting(authPassKey, string(hash))
+	if err != nil {
 		writeErr(w, 500, authErrSaveFailedPrefix+err.Error())
+		return
+	}
+	if !initialized {
+		writeErr(w, 403, authErrPasswordAlreadySet)
 		return
 	}
 	tok, err := signJWT(s.jwtKey)

@@ -25,6 +25,21 @@ ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, key
 	return err
 }
 
+// InitSetting writes a value only while the setting has no nonempty value.
+// The conflict condition runs atomically in PostgreSQL, so simultaneous first
+// time initializers cannot replace a password chosen by another request.
+func (d *DB) InitSetting(key, value string) (bool, error) {
+	result, err := d.Exec(`
+INSERT INTO settings(key, value) VALUES ($1, $2)
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+WHERE settings.value = ''`, key, value)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows == 1, err
+}
+
 // GetBool returns the boolean setting, or def when unset/unparseable.
 func (d *DB) GetBool(key string, def bool) bool {
 	v, ok, err := d.GetSetting(key)

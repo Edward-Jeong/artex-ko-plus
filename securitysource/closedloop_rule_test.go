@@ -257,7 +257,10 @@ func TestClosedLoopRuleFailedQueryStillHasSafeProvenance(t *testing.T) {
 				return
 			}
 			if err == nil || out == nil || out.Complete || out.ErrorCode != tc.code || out.QueryFinishedAt.IsZero() || out.Query == "" {
-				t.Fatalf("failure attempt missing: out=%+v err=%v", out, err)
+				if out == nil {
+					t.Fatalf("failure attempt missing: nil result, err=%v", err)
+				}
+				t.Fatalf("failure attempt missing: code=%q complete=%v files=%d finished=%v query=%v err=%v", out.ErrorCode, out.Complete, len(out.Files), !out.QueryFinishedAt.IsZero(), out.Query != "", err)
 			}
 			if strings.Contains(err.Error(), "private") || strings.Contains(strings.Join(out.Warnings, " "), "private") || (!tc.wantFile && len(out.Files) > 0) {
 				t.Fatal("authentication diagnostics disclosed")

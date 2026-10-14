@@ -63,6 +63,8 @@ python3 -I scripts/check-doc-links.py
 
 ## 공개 파일의 범위
 
+운영·보안 보완과 검증 자동화는 [2026-10-14 보완 기록](security-hardening-2026-10-14.md)을 참고하세요. 공개 전 `python3 scripts/check-public-boundaries.py`를 실행하고 별도 비밀정보 검사를 수행합니다.
+
 | 포함 | 제외 |
 |---|---|
 | 애플리케이션 소스, 의존성 잠금 파일, 테스트 | `.env`, `.env.local`, 기타 실제 환경 설정 파일 |

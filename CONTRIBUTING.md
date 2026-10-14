@@ -6,6 +6,10 @@ ARTEX 한국어판(`artex-ko`)에 관심을 가져 주셔서 고맙습니다. �
 알아 두어야 할 범위·방침·절차를 한국어로 정리한 것입니다. 기여를 보내기 전에 반드시
 [사용 범위와 법적 책임](#사용-범위와-법적-책임)과 [현지화 방침](#현지화-방침)을 먼저 읽어 주십시오.
 
+현재 자동 검사는 [`security-ci.yml`](.github/workflows/security-ci.yml)에 있습니다. 문서나 탐지 규칙을
+바꿨다면 `python3 -I scripts/check-doc-links.py`와 관련 탐지 스위트 스크립트를 직접 실행하십시오.
+옛 `docs.yml`·`detections.yml` 워크플로와 pre-commit 훅 설정은 현재 배포본에 없습니다.
+
 - 버그를 신고하거나 기능을 제안하려면 → [이슈 템플릿](https://github.com/jiwoochris/artex-ko/issues/new/choose)을 사용하십시오.
 - 번역·현지화 오류를 발견했다면 → "번역·현지화 오류" 이슈 템플릿을 사용하십시오.
 - 보안 취약점을 발견했다면 → **공개 이슈로 올리지 말고** [SECURITY.md](SECURITY.md)의 절차를 따라 주십시오.
@@ -104,8 +108,8 @@ docker run --rm -v "$PWD":/src -w /src \
 건너뜁니다.** `agent`·`config`·`db`·`evidence`·`llmrec`·`server` 여섯 패키지에는 실제
 데이터베이스가 있어야 도는 테스트가 들어 있는데, 환경 변수 `ARTEX_PG_DSN` 도 없고 설정
 파일에도 `database` 항목이 없으면 그 테스트들은 `--- SKIP` 으로 넘어가고 패키지는 `ok` 로
-끝납니다. 그래서 이 여섯 패키지를 고친 뒤 DSN 없이 검증하면 **로컬은 통과(ok)하는데 PR 의
-`go-db` 작업은 실패**할 수 있습니다.
+끝납니다. 그래서 이 여섯 패키지를 고친 뒤 DSN 없이 검증하면 **로컬은 통과(ok)해도
+데이터베이스 연동 테스트는 실패**할 수 있습니다.
 
 이 테스트들을 로컬에서 돌리려면 PostgreSQL 을 띄우고 `ARTEX_PG_DSN` 을 건넵니다. 아래는
 CI 와 같은 `postgres:16-alpine` 을 격리 네트워크에 띄워 돌리는 예시이며, 위와 같은 named
@@ -130,9 +134,9 @@ docker run --rm --network artexko-db -v "$PWD":/src -w /src \
 docker rm -f artexko-pg && docker network rm artexko-db
 ```
 
-CI 의 `go-db` 작업은 이 여섯 패키지를 **각각 자체 postgres 로 격리해** 머지 전에 강제로
-돌립니다(`.github/workflows/ci.yml`). DB 통합 패키지를 고쳤다면 PR 을 올리기 전에 위
-방법으로 해당 패키지를 직접 확인하기를 권합니다.
+현재 CI는 [`scripts/local-test.sh`](scripts/local-test.sh)로 일회용 PostgreSQL 컨테이너에서
+선택된 Go 통합 테스트를 실행합니다. DB 통합 패키지를 고쳤다면 PR을 올리기 전에 위 방법으로
+관련 테스트를 직접 확인하십시오.
 
 ### 프런트엔드 (web)
 
@@ -168,18 +172,13 @@ docker compose up -d     # artex + postgres 기동 → http://localhost:8787
    `build`·`vet`·`test` 를 통과시킵니다. web 변경이면 `npm run build:static`
    (머지 게이트 · TypeScript 타입 검사를 함께 수행합니다)을 통과시킵니다.
    `npm run check`(Biome)는 상류에서 딸려온 선재 린트 부채가 남아 있어 아직 머지
-   게이트가 아니고 `web.yml` 에서 정보용 단계로만 돌리므로, 전체를 통과시킬 필요는
-   없습니다. 대신 **내 변경이 새 오류를 더하지 않았는지**만 확인하면 됩니다(커밋할 때
-   `lint-staged` 가 스테이징한 파일에만 `biome check --write` 를 자동으로 적용합니다).
+   현행 CI 게이트가 아닙니다. **내 변경이 새 오류를 더하지 않았는지** 직접 확인하십시오.
    문서(`.md`)를 바꿨다면 `python3 -I scripts/check-doc-links.py` 로 저장소 안
    링크·이미지 참조와 문서 앵커(`#헤딩`) 링크가 깨지지 않았는지 확인합니다. 앵커는
    GitHub 과 같은 규칙으로 헤딩에서 slug 를 만들어 대조하므로, 헤딩 글자를 바꾸면서
-   그 헤딩을 가리키던 앵커 링크를 함께 고치지 않으면 여기서 걸립니다(CI 의 `docs`
-   워크플로가 같은 검사를 머지 게이트로 강제합니다). 이 검사는 저장소 루트의
-   [`.pre-commit-config.yaml`](.pre-commit-config.yaml)에 `docs` 훅으로도 들어 있어,
-   `pre-commit install` 을 해 두면 커밋할 때 자동으로 돌아갑니다(파이썬 표준 라이브러리만
-   쓰고 네트워크에 접속하지 않아 Docker 없이 끝납니다).
-4. **PR 을 엽니다.** 제목·설명은 [PR 템플릿](.github/PULL_REQUEST_TEMPLATE.md)을 따르고,
+   그 헤딩을 가리키던 앵커 링크를 함께 고치지 않으면 여기서 걸립니다. 현재 CI는 이 검사를
+   실행하지 않으므로 직접 돌리십시오(파이썬 표준 라이브러리만 쓰고 네트워크에 접속하지 않습니다).
+4. **PR 을 엽니다.** 제목·설명에
    무엇을 왜 바꿨는지와 어떻게 검증했는지를 적습니다. UI 를 바꿨다면 스크린샷을 첨부합니다.
 5. 사용자에게 보이는 변경(기능·현지화·문서·탐지 규칙 등)이라면 [변경 이력(CHANGELOG.md)](CHANGELOG.md)
    의 `[Unreleased]` 절에 한 줄을 더합니다. 내부 리팩터링이나 테스트 전용 변경은 생략해도 됩니다.
@@ -257,19 +256,10 @@ detections/tests/indicators/run.sh      # 지표: 규칙의 고정 지표 ↔ �
 detections/tests/misp/run.sh            # MISP: 지표 CSV ↔ MISP 이벤트 동기화 + pymisp 유효성
 ```
 
-여덟을 한 번에 돌리려면 [`detections/tests/run-all.sh`](detections/tests/run-all.sh)를 쓰십시오. CI 와 같은
-순서로 여덟을 순차 실행하고, 앞선 스위트가 실패해도 나머지를 끝까지 돌린 뒤 스위트별 PASS/FAIL 요약을
-출력하며, 하나라도 실패하면 0 이 아닌 코드로 끝납니다. 이 러너를 pre-commit 훅으로 바로 거는 설정 예시가
-저장소 루트의 [`.pre-commit-config.yaml`](.pre-commit-config.yaml)에 있습니다. `pip install pre-commit &&
-pre-commit install` 로 설치하면, 탐지 규칙이나 그 규칙이 고정한 상류 소스가 바뀌는 커밋에서만(CI 와 같은
-범위) 러너가 돌아 규칙·테스트 불일치를 푸시 전에 잡습니다. 같은 설정 파일에는 문서 내부 링크·이미지·앵커를
-검사하는 `docs` 훅(위 기여 절차 3번의 `check-doc-links.py`)도 함께 들어 있습니다.
-
-이 여덟 테스트는 저장소 CI([`.github/workflows/detections.yml`](.github/workflows/detections.yml))가
-`detections/` 아래가 바뀐 푸시·PR 마다 돌립니다. 지표 일치 테스트는 그 지표가 가리키는 상류 소스 파일
-(`enrich/`·`selfupdate/`·`guard/`·`db/`·`cmd/artex/main.go`)이 바뀔 때도 돌아, 상류 재동기화가 User-Agent·
-마커·기본 포트를 바꿔 규칙이 조용히 낡는 경우를 함께 잡습니다. 따라서 규칙만 바꾸고 테스트·레이어를 갱신하지 않은 변경, SigmaHQ 관례를
-깨뜨린 규칙, 또는 소스와 어긋난 규칙은 머지 전에 CI 에서 빨갛게 드러납니다.
+예전의 탐지 스위트 CI와 pre-commit 설정은 현재 배포본에 없습니다. [`detections/tests/run-all.sh`](detections/tests/run-all.sh)는
+현재 없는 `detections.yml`을 요구하는 하네스 점검을 먼저 실행하므로 현행 검증 관문으로 사용할 수 없습니다.
+관련 스위트의 로컬 전제 조건을 확인한 뒤 필요한 스크립트만 직접 실행하고, 실제 실행 결과를 PR에 적으십시오.
+지표 스위트도 삭제된 워크플로와 훅 설정에 의존합니다.
 
 규칙 색인과 각 규칙의 근거·한계는 [`detections/README.md`](detections/README.md)에, 테스트의 단언 항목과
 실행법은 [`detections/tests/README.md`](detections/tests/README.md)에 정리되어 있습니다.

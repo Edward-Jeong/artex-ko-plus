@@ -169,11 +169,17 @@ func TestClosedLoopRangeBoundedResponseAndInvalidConfig(t *testing.T) {
 	if w := request("GET", "/api/closed-loop/range/status", ""); w.Code != 502 {
 		t.Fatal("oversize response accepted", w.Code)
 	}
-	for _, bad := range []string{"ftp://bridge.invalid", "http://user:private@bridge.invalid", "http://bridge.invalid?token=secret", "http://bridge.invalid/other"} {
+	for _, bad := range []string{"ftp://bridge.invalid", "http://user:private@bridge.invalid", "http://bridge.invalid?token=secret", "http://bridge.invalid/other", "http://bridge.invalid:8091", "http://192.0.2.10:8091"} {
 		t.Setenv("ARTEX_RANGE_BRIDGE_URL", bad)
 		w := request("GET", "/api/closed-loop/range/status", "")
 		if w.Code != 200 || !strings.Contains(w.Body.String(), `"ready":false`) || strings.Contains(w.Body.String(), "private") {
 			t.Fatal("bad host config", w.Code, w.Body.String())
+		}
+	}
+	for _, allowed := range []string{"https://bridge.example:8091", "http://range-bridge:8091", "http://localhost:8091", "http://[::1]:8091"} {
+		t.Setenv("ARTEX_RANGE_BRIDGE_URL", allowed)
+		if cfg, configured := loadClosedLoopRangeConfig(); cfg == nil || !configured {
+			t.Fatal("private or TLS bridge rejected", allowed)
 		}
 	}
 	t.Setenv("ARTEX_RANGE_BRIDGE_URL", "http://bridge.invalid")

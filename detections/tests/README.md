@@ -18,51 +18,13 @@ repository.
 
 ## Run every suite at once — [`run-all.sh`](run-all.sh)
 
-[`run-all.sh`](run-all.sh) runs all eight suites below in one command, in the same order as CI, so you do not
-have to invoke the eight `run.sh` scripts by hand. Each suite runs to completion even if an earlier one fails,
-the script prints a one-line PASS/FAIL summary per suite at the end, and it exits non-zero if any suite failed.
-
-Before the suites, it runs a harness self-check ([`check-harness-sync.sh`](check-harness-sync.sh)) that fails
-the run if this suite list, the per-suite steps in [CI](../../.github/workflows/detections.yml), and the suite
-directories on disk ever name different suites or a different order. That is the one gap the eight suites
-cannot see on their own: a suite wired into only one of the three (a new CI step with no `run-all.sh` entry, or
-a directory never added to either) would otherwise pass every per-suite test while a green local `run-all.sh`
-quietly stopped meaning a green CI. The check is a gate, not a ninth suite: it stays out of the summary
-below, so the eight detection suites stay eight.
-
-Two more gates run the same way — before the suite loop, out of the summary, and never counted as suites:
-the [host-triage tool](../triage/)'s `--self-test` ([`triage-selftest.sh`](triage-selftest.sh)) and the
-defense-template consistency check ([`check-defense-template.sh`](check-defense-template.sh)). The latter
-re-runs the facts the defense guide states about its inline Sigma correlation template (`sigma check`
-passes, it converts on splunk/eql/loki, lucene and kusto reject the correlation, and the Korean and English
-copies carry a byte-identical rule body); that template is prose outside the [`../sigma/`](../sigma/) rule
-tree, so no suite would otherwise catch it going stale against an upstream sigma-cli.
-
-```sh
-detections/tests/run-all.sh
-```
-
-Expected output (abridged):
-
-```
-===== detection suites summary =====
-  PASS  sigma
-  PASS  sigma_match
-  PASS  sigma_lint
-  PASS  sigma_backends
-  PASS  suricata
-  PASS  attack
-  PASS  indicators
-  PASS  misp
-RESULT: PASS
-```
-
-Because it exits non-zero on any failure, it drops straight into a pre-commit hook. A ready-to-use example
-lives in [`.pre-commit-config.yaml`](../../.pre-commit-config.yaml) at the repository root: install it with
-`pip install pre-commit && pre-commit install`, and the runner then fires on commits that touch the detection
-rules or the upstream source files they pin — the same scope as CI. The image and version overrides the
-individual suites honour (`PYTHON_IMAGE`, `SIGMA_CLI_VERSION`, `SIGMAHQ_VALIDATORS_VERSION`, `SURICATA_IMAGE`)
-are inherited by the runner, so exporting any of them applies to every suite at once.
+The former `detections.yml` workflow and root `.pre-commit-config.yaml` are absent.
+[`run-all.sh`](run-all.sh) invokes [`check-harness-sync.sh`](check-harness-sync.sh), which requires
+that missing workflow, so the aggregate command currently fails before it can certify the suites.
+The current [`security-ci.yml`](../../.github/workflows/security-ci.yml) does not run these detection suites.
+Run a relevant suite's `run.sh` directly only after checking its prerequisites; the indicators suite
+also reads the removed workflow and hook configuration and cannot currently provide its full gate.
+Report which individual checks ran and their results. The examples below describe the former design.
 
 ## Suricata — [`suricata/`](suricata/)
 
@@ -375,8 +337,8 @@ each indicator, bidirectionally:
   published CSV cannot silently drift from the source it claims to come from, in either direction.
 - **Both gates fire on each pinned source** — every upstream source the test reads is covered by the two
   gates that run it: the CI workflow's `push` and `pull_request` paths filter
-  ([`.github/workflows/detections.yml`](../../.github/workflows/detections.yml)) and the local pre-commit
-  hook's `files` regex ([`.pre-commit-config.yaml`](../../.pre-commit-config.yaml)). The required set is
+  (`.github/workflows/detections.yml`) and the local pre-commit
+  hook's `files` regex (`.pre-commit-config.yaml`). The required set is
   derived from the indicators themselves, so pinning a new source (as the `cmd/artex/main.go` ports once were)
   without wiring it into *both* gates fails here — otherwise a change touching only that source skips the test
   on whichever gate omits it: on CI it passes the merge gate green, on the hook it is never caught locally
@@ -456,7 +418,7 @@ deterministically, assert engine-version-independent properties exactly (and sof
 recorded reference), and avoid any content that reads as attack guidance. See
 [`../../CONTRIBUTING.en.md`](../../CONTRIBUTING.en.md) and the rule indexes in [`../README.md`](../README.md).
 
-All eight suites run in CI (see [`../../.github/workflows/detections.yml`](../../.github/workflows/detections.yml))
+All eight suites run in CI (see `../../.github/workflows/detections.yml`)
 on every push or pull request that touches `detections/` — and the indicator test also runs when the upstream
 source files it pins (`enrich/`, `selfupdate/`, `guard/`, `db/`, `cmd/artex/main.go`) change — so a rule
 change that drops an indicator, drifts from the ATT&CK layer, stops converting on a documented backend,
