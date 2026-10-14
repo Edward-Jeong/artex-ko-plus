@@ -13,52 +13,13 @@
 
 ## 모든 스위트를 한 번에 실행: [`run-all.sh`](run-all.sh)
 
-[`run-all.sh`](run-all.sh) 는 아래 여덟 스위트를 CI 와 같은 순서로 한 명령에 전부 돌리므로, 여덟 개
-`run.sh` 스크립트를 손으로 하나씩 호출하지 않아도 됩니다. 앞 스위트가 실패해도 각 스위트는 끝까지
-돌고, 스크립트는 마지막에 스위트마다 PASS/FAIL 한 줄 요약을 출력하며, 하나라도 실패하면 0 이 아닌
-코드로 종료합니다.
-
-스위트를 돌리기 전에 하네스 자기 점검([`check-harness-sync.sh`](check-harness-sync.sh))을 먼저 실행합니다.
-이 점검은 위의 스위트 목록, [CI](../../.github/workflows/detections.yml) 의 스위트별 스텝, 디스크의 스위트
-디렉터리 이 셋이 서로 다른 스위트나 다른 순서를 가리키면 실행을 실패로 끝냅니다. 이것은 여덟 스위트가
-스스로 보지 못하는 유일한 공백입니다. 세 곳 중 한 곳에만 배선된 스위트(예: `run-all.sh` 항목 없이 CI
-스텝만 추가하거나, 어느 쪽에도 넣지 않은 디렉터리)는 스위트별 테스트를 모두 통과하면서도, 로컬에서
-초록이던 `run-all.sh` 가 더는 초록 CI 를 뜻하지 않게 만듭니다. 이 점검은 아홉째 스위트가 아니라 게이트라서
-아래 요약에는 나타나지 않으므로, 탐지 스위트는 여덟 그대로입니다.
-
-게이트가 두 개 더 같은 방식으로 돕니다. 스위트 루프 전에 돌고, 요약에 나타나지 않으며, 스위트로 세지
-않습니다. 하나는 [호스트 분류 도구](../triage/)의 `--self-test`([`triage-selftest.sh`](triage-selftest.sh))이고,
-다른 하나는 방어 템플릿 정합 검사([`check-defense-template.sh`](check-defense-template.sh))입니다. 뒤의 것은
-방어 가이드가 인라인 Sigma 상관 템플릿에 대해 단언한 사실(`sigma check` 통과, splunk·eql·loki 변환,
-lucene·kusto 의 상관 거부, 한국어판·영어판 규칙 본문의 바이트 단위 동일)을 다시 돌립니다. 그 템플릿은
-[`../sigma/`](../sigma/) 규칙 트리 밖 산문으로 들어 있어, 상류 `sigma-cli` 가 올라가 주장이 낡아도 다른
-어떤 스위트도 잡지 못하기 때문입니다.
-
-```sh
-detections/tests/run-all.sh
-```
-
-예상 출력(축약):
-
-```
-===== detection suites summary =====
-  PASS  sigma
-  PASS  sigma_match
-  PASS  sigma_lint
-  PASS  sigma_backends
-  PASS  suricata
-  PASS  attack
-  PASS  indicators
-  PASS  misp
-RESULT: PASS
-```
-
-실패가 하나라도 있으면 0 이 아닌 코드로 종료하므로 pre-commit 훅에 그대로 넣을 수 있습니다. 바로 쓸
-수 있는 예시가 저장소 최상위 [`.pre-commit-config.yaml`](../../.pre-commit-config.yaml) 에 있습니다.
-`pip install pre-commit && pre-commit install` 로 설치하면, 탐지 규칙이나 그 규칙이 고정한 상류 소스
-파일을 건드리는 커밋에서 러너가 발화합니다. CI 와 같은 범위입니다. 개별 스위트가 인식하는 이미지·버전
-재정의(`PYTHON_IMAGE`, `SIGMA_CLI_VERSION`, `SIGMAHQ_VALIDATORS_VERSION`, `SURICATA_IMAGE`)는 러너가
-그대로 물려받으므로, 그중 어느 것을 export 해도 모든 스위트에 한꺼번에 적용됩니다.
+예전 `detections.yml` 워크플로와 저장소 루트의 `.pre-commit-config.yaml`은 현재 없습니다.
+[`run-all.sh`](run-all.sh)는 없는 워크플로를 요구하는 [`check-harness-sync.sh`](check-harness-sync.sh)를
+먼저 실행하므로 현재 여덟 스위트의 통합 통과를 증명하지 못합니다. 현행
+[`security-ci.yml`](../../.github/workflows/security-ci.yml)도 이 탐지 스위트들을 실행하지 않습니다.
+관련 스위트의 전제 조건을 확인한 뒤 필요한 `run.sh`만 직접 실행하고 실제 결과를 기록하십시오.
+지표 스위트도 삭제된 워크플로와 훅 설정을 읽으므로 전체 관문으로 사용할 수 없습니다.
+아래 예시와 자동화 설명은 예전 설계를 기록한 것입니다.
 
 ## Suricata: [`suricata/`](suricata/)
 
@@ -371,8 +332,8 @@ ARTEX 트래픽에 조용히 매칭을 멈춥니다. 각 지표에 대해 양방
   근거를 확인한 모든 지문은 이 목록에 나타나야 합니다. 그래서 공개된 CSV 는 자신이 유래했다고 주장하는
   소스에서 어느 방향으로도 조용히 어긋날 수 없습니다.
 - **두 관문이 고정된 각 소스에서 발화함**: 테스트가 읽는 모든 상류 소스는 그것을 돌리는 두 관문에
-  포함됩니다. CI 워크플로의 `push`·`pull_request` paths 필터([`.github/workflows/detections.yml`](../../.github/workflows/detections.yml))와
-  로컬 pre-commit 훅의 `files` 정규식([`.pre-commit-config.yaml`](../../.pre-commit-config.yaml))입니다.
+  포함됩니다. CI 워크플로의 `push`·`pull_request` paths 필터(`.github/workflows/detections.yml`)와
+  로컬 pre-commit 훅의 `files` 정규식(`.pre-commit-config.yaml`)입니다.
   필요한 집합은 지표 자체에서 파생되므로, 새 소스를 고정하면서(예전의 `cmd/artex/main.go` 포트가
   그랬듯) *두* 관문에 모두 배선하지 않으면 여기서 실패합니다. 그러지 않으면 그 소스만 건드린 변경이
   그 소스를 빠뜨린 관문에서 테스트를 건너뜁니다. CI 에서는 머지 게이트를 초록으로 통과하고, 훅에서는
@@ -455,7 +416,7 @@ detections/tests/misp/run.sh
 [`../README.ko.md`](../README.ko.md) 의 규칙 색인을 보십시오.
 
 여덟 스위트는 모두 `detections/` 를 건드리는 모든 push 나 pull request 에서 CI 로 돕니다
-([`../../.github/workflows/detections.yml`](../../.github/workflows/detections.yml) 참조). 그리고 지표
+(`../../.github/workflows/detections.yml` 참조). 그리고 지표
 테스트는 그것이 고정한 상류 소스 파일(`enrich/`, `selfupdate/`, `guard/`, `db/`, `cmd/artex/main.go`)이
 바뀔 때도 돕니다. 그래서 지표를 떨어뜨리거나, ATT&CK 레이어에서 어긋나거나, 문서화한 백엔드에서
 변환이 멈추거나, SigmaHQ 관례를 깨거나, 소스와 동기화가 어긋나거나, MISP 이벤트가 CSV 에서 어긋나게

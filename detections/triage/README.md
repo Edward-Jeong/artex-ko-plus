@@ -106,8 +106,7 @@ default (triage, not a gate); pass `--exit-code` to make it `1` when any indicat
 The `--self-test` builds a synthetic host — a data directory with a planted CA, index, and blob store; a
 log containing each marker; a port listing; and a captured process-environment dump — and asserts every
 check fires on it, then asserts a clean host, a benign log, and a corporate-proxy process produce **zero**
-findings (no false positives). It is wired into the
-[`detections` CI workflow](../../.github/workflows/detections.yml) and re-run by
-[`detections/tests/run-all.sh`](../tests/run-all.sh), so a change that breaks a check, or that drifts an
-indicator away from the source string it greps for, fails the merge gate. A detection you cannot run is
-only a claim.
+findings (no false positives). Run `detections/triage/artex_host_triage.py --self-test` directly when
+changing this tool. The former `detections.yml` workflow is absent, and
+[`detections/tests/run-all.sh`](../tests/run-all.sh) currently fails its harness check because that workflow
+is missing. The current [`security-ci.yml`](../../.github/workflows/security-ci.yml) does not run this self-test.
